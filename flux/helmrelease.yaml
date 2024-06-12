@@ -1,0 +1,74 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: my-chatgpt-ui
+spec:
+  serviceAccountName: flux-sa # Required, leave it as "flux-sa"
+  targetNamespace: sk-cyancitron # Required, your namespace name
+  interval: 10m
+  timeout: 5m
+  chart:
+    spec:
+      chart: chatgpt-next-web
+      version: '0.1.1'
+      sourceRef:
+        kind: HelmRepository
+        name: chatgpt-next-web
+      interval: 5m
+  releaseName: my-chatgpt-ui
+  install:
+    remediation:
+      retries: 3
+  upgrade:
+    remediation:
+      retries: 3
+  test:
+    enable: true
+  driftDetection:
+    mode: enabled
+    ignore:
+    - paths: ["/spec/replicas"]
+      target:
+        kind: Deployment
+  values:
+    replicaCount: 1
+    enabled: true
+    config:
+    #  BASE_URL: http://[your openai api url]
+    #  OPENAI_API_KEY: [your openai api key]
+    #  AZURE_URL: https://[your azure api url] # if you want to use azure api
+    #  AZURE_API_VERSION: 2023-08-01-preview # if you want to use azure api
+    #  AZURE_API_KEY: [your azure api key] # if you want to use azure api
+    #  CODE: [backend access code]
+    image:
+      repository: 808359682750.dkr.ecr.eu-central-1.amazonaws.com/chatgpt-next-web
+      pullPolicy: Always
+      tag: latest
+
+    service:
+      port: 80
+      type: ClusterIP
+
+    ingress:
+      enabled: true
+      className: nginx
+      annotations:
+        cert-manager.io/issuer: "letsencrypt-prod" # Required for TLS, letsencrypt-prod or letsencrypt-staging
+      hosts:
+        - host: sharedkubenative.com # Required, your domain name
+          paths:
+            - path: /
+              pathType: ImplementationSpecific
+      tls:
+        - hosts:
+            - sharedkubenative.com # Required, your domain name
+          secretName: sharedkubenative-com-tls # Required, your secret name where the certificate is stored
+
+    resources:
+       limits:
+         cpu: 500m
+         memory: 800Mi
+       requests:
+         cpu: 500m
+         memory: 800Mi
